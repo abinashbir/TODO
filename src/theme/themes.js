@@ -1,0 +1,61 @@
+export const THEMES = {
+    midnight: {
+        name: 'midnight',
+        bgApp: '#0f172a',
+        bgGlass: 'rgba(30, 41, 59, 0.85)',
+        bgGlassBorder: 'rgba(148, 163, 184, 0.15)',
+        textPrimary: '#f8fafc',
+        textSecondary: '#94a3b8',
+        primary: '#8b5cf6',
+        primaryGlow: 'rgba(139, 92, 246, 0.5)',
+        accent: '#06b6d4',
+        danger: '#ef4444',
+        success: '#22c55e',
+        gradientStart: 'rgba(139, 92, 246, 0.15)',
+        gradientEnd: 'rgba(6, 182, 212, 0.15)',
+    },
+    sunset: {
+        name: 'sunset',
+        bgApp: '#2e1065',
+        bgGlass: 'rgba(88, 28, 135, 0.75)',
+        bgGlassBorder: 'rgba(148, 163, 184, 0.15)',
+        textPrimary: '#f8fafc',
+        textSecondary: '#c4b5fd',
+        primary: '#f43f5e',
+        primaryGlow: 'rgba(244, 63, 94, 0.5)',
+        accent: '#f59e0b',
+        danger: '#ef4444',
+        success: '#22c55e',
+        gradientStart: 'rgba(244, 63, 94, 0.15)',
+        gradientEnd: 'rgba(245, 158, 11, 0.15)',
+    },
+    ocean: {
+        name: 'ocean',
+        bgApp: '#0c4a6e',
+        bgGlass: 'rgba(12, 74, 110, 0.75)',
+        bgGlassBorder: 'rgba(148, 163, 184, 0.15)',
+        textPrimary: '#f8fafc',
+        textSecondary: '#7dd3fc',
+        primary: '#0ea5e9',
+        primaryGlow: 'rgba(14, 165, 233, 0.5)',
+        accent: '#14b8a6',
+        danger: '#ef4444',
+        success: '#22c55e',
+        gradientStart: 'rgba(14, 165, 233, 0.15)',
+        gradientEnd: 'rgba(20, 184, 166, 0.15)',
+    },
+};
+
+export const CATEGORY_COLORS = {
+    work: '#06b6d4',
+    personal: '#8b5cf6',
+    shopping: '#22c55e',
+    health: '#ef4444',
+};
+
+export const CATEGORIES = [
+    { id: 'work', label: 'Work' },
+    { id: 'personal', label: 'Personal' },
+    { id: 'shopping', label: 'Shopping' },
+    { id: 'health', label: 'Health' },
+];
