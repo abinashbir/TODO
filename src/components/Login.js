@@ -16,7 +16,7 @@ import { useTheme } from '../context/ThemeContext';
 const { width } = Dimensions.get('window');
 
 export default function Login() {
-    const { loginWithGoogle, loading, googleAuthRequest } = useAuth();
+    const { loginWithGoogle, loading, googleAuthRequest, firebaseError } = useAuth();
     const { theme } = useTheme();
 
     if (loading) {
@@ -37,6 +37,19 @@ export default function Login() {
             <View style={[styles.orb, styles.orbBottomRight, { backgroundColor: theme.gradientEnd }]} />
 
             <View style={styles.content}>
+                {/* Error message if Firebase is not configured */}
+                {firebaseError && (
+                    <View style={[styles.errorBox, { backgroundColor: '#DC2626' + '20', borderColor: '#DC2626' }]}>
+                        <Ionicons name="alert-circle" size={18} color="#DC2626" />
+                        <View style={{ flex: 1 }}>
+                            <Text style={[styles.errorTitle, { color: '#DC2626' }]}>Firebase Not Configured</Text>
+                            <Text style={[styles.errorText, { color: '#B91C1C' }]}>
+                                Please add your Firebase credentials to .env.local file
+                            </Text>
+                        </View>
+                    </View>
+                )}
+
                 {/* App Icon */}
                 <View style={[styles.iconContainer, { backgroundColor: theme.primary + '20' }]}>
                     <Ionicons name="checkmark-done" size={48} color={theme.primary} />
@@ -56,9 +69,9 @@ export default function Login() {
                 }]}>
                     <TouchableOpacity
                         onPress={loginWithGoogle}
-                        disabled={!googleAuthRequest}
+                        disabled={!googleAuthRequest || !!firebaseError}
                         style={[styles.googleButton, {
-                            opacity: googleAuthRequest ? 1 : 0.5,
+                            opacity: (googleAuthRequest && !firebaseError) ? 1 : 0.5,
                         }]}
                         activeOpacity={0.8}
                     >
@@ -119,6 +132,25 @@ const styles = StyleSheet.create({
         paddingHorizontal: 32,
         width: '100%',
         maxWidth: 400,
+    },
+    errorBox: {
+        width: '100%',
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        borderRadius: 12,
+        padding: 12,
+        marginBottom: 24,
+        borderWidth: 1,
+        gap: 12,
+    },
+    errorTitle: {
+        fontSize: 14,
+        fontWeight: '600',
+        marginBottom: 4,
+    },
+    errorText: {
+        fontSize: 12,
+        lineHeight: 16,
     },
     iconContainer: {
         width: 96,

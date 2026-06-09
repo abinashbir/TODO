@@ -26,6 +26,11 @@
     "plugins": [
       "expo-web-browser",
       "@react-native-community/datetimepicker"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "1f02b0b4-59f1-47e8-957e-b98eb579ec8c"
+      }
+    }
   }
 }

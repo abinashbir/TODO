@@ -11,27 +11,32 @@ export function useTodos() {
 
     // Real-time Sync from Firestore
     useEffect(() => {
-        if (!currentUser) {
+        if (!currentUser || !db) {
             setTodos([]);
             return;
         }
 
-        const q = query(
-            collection(db, 'users', currentUser.uid, 'todos'),
-            orderBy('createdAt', 'desc')
-        );
+        try {
+            const q = query(
+                collection(db, 'users', currentUser.uid, 'todos'),
+                orderBy('createdAt', 'desc')
+            );
 
-        const unsubscribe = onSnapshot(q, (snapshot) => {
-            const fetchedTodos = snapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data()
-            }));
-            setTodos(fetchedTodos);
-        }, (error) => {
-            console.error('Error fetching todos:', error);
-        });
+            const unsubscribe = onSnapshot(q, (snapshot) => {
+                const fetchedTodos = snapshot.docs.map(doc => ({
+                    id: doc.id,
+                    ...doc.data()
+                }));
+                setTodos(fetchedTodos);
+            }, (error) => {
+                console.error('Error fetching todos:', error);
+            });
 
-        return unsubscribe;
+            return unsubscribe;
+        } catch (error) {
+            console.error('Error setting up todos listener:', error);
+            return () => {};
+        }
     }, [currentUser]);
 
     const updateStreak = () => {
@@ -49,8 +54,8 @@ export function useTodos() {
     };
 
     const addTodo = async (text, categoryId = 'personal', dueDate = null) => {
-        if (!text.trim() || !currentUser) {
-            console.error('Cannot add todo: No text or no user logged in.');
+        if (!text.trim() || !currentUser || !db) {
+            console.error('Cannot add todo: No text, no user logged in, or Firebase not configured.');
             return;
         }
         try {
@@ -69,7 +74,7 @@ export function useTodos() {
     };
 
     const toggleTodo = async (id) => {
-        if (!currentUser) return;
+        if (!currentUser || !db) return;
         const todo = todos.find(t => t.id === id);
         if (!todo) return;
 
@@ -84,7 +89,7 @@ export function useTodos() {
     };
 
     const deleteTodo = async (id) => {
-        if (!currentUser) return;
+        if (!currentUser || !db) return;
         try {
             await deleteDoc(doc(db, 'users', currentUser.uid, 'todos', id));
         } catch (e) {
@@ -93,7 +98,7 @@ export function useTodos() {
     };
 
     const editTodo = async (id, newText) => {
-        if (!currentUser) return;
+        if (!currentUser || !db) return;
         try {
             await updateDoc(doc(db, 'users', currentUser.uid, 'todos', id), {
                 text: newText.trim()
@@ -104,7 +109,7 @@ export function useTodos() {
     };
 
     const addSubtask = async (todoId, text) => {
-        if (!currentUser) return;
+        if (!currentUser || !db) return;
         const todo = todos.find(t => t.id === todoId);
         if (!todo) return;
         const newSubtasks = [
@@ -121,7 +126,7 @@ export function useTodos() {
     };
 
     const toggleSubtask = async (todoId, subtaskId) => {
-        if (!currentUser) return;
+        if (!currentUser || !db) return;
         const todo = todos.find(t => t.id === todoId);
         if (!todo) return;
         const newSubtasks = (todo.subtasks || []).map(s =>

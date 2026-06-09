@@ -15,6 +15,7 @@ export function useAuth() {
 export function AuthProvider({ children }) {
     const [currentUser, setCurrentUser] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [firebaseError, setFirebaseError] = useState(null);
 
     const webClientId =
         process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ||
@@ -29,11 +30,23 @@ export function AuthProvider({ children }) {
     });
 
     useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, (user) => {
-            setCurrentUser(user);
+        if (!auth) {
+            setFirebaseError('Firebase is not configured. Please add your credentials to .env.local');
             setLoading(false);
-        });
-        return unsubscribe;
+            return;
+        }
+
+        try {
+            const unsubscribe = onAuthStateChanged(auth, (user) => {
+                setCurrentUser(user);
+                setLoading(false);
+            });
+            return unsubscribe;
+        } catch (error) {
+            console.error('Auth listener error:', error);
+            setFirebaseError(error.message);
+            setLoading(false);
+        }
     }, []);
 
     // Handle Google Auth response
@@ -43,19 +56,26 @@ export function AuthProvider({ children }) {
             const credential = GoogleAuthProvider.credential(id_token);
             signInWithCredential(auth, credential).catch((error) => {
                 console.error('Firebase sign-in error:', error);
+                setFirebaseError(error.message);
             });
         }
     }, [response]);
 
     const loginWithGoogle = async () => {
+        if (!auth) {
+            setFirebaseError('Firebase is not configured');
+            return;
+        }
         try {
             await promptAsync();
         } catch (error) {
             console.error('Login failed:', error);
+            setFirebaseError(error.message);
         }
     };
 
     const logout = () => {
+        if (!auth) return Promise.reject('Firebase not configured');
         return signOut(auth);
     };
 
@@ -65,6 +85,7 @@ export function AuthProvider({ children }) {
         logout,
         loading,
         googleAuthRequest: request,
+        firebaseError,
     };
 
     return (

@@ -21,7 +21,7 @@ import ThemeSwitcher from '../components/ThemeSwitcher';
 
 export default function HomeScreen() {
     const { theme } = useTheme();
-    const { logout } = useAuth();
+    const { logout, firebaseError } = useAuth();
     const {
         todos,
         streak,
@@ -33,6 +33,25 @@ export default function HomeScreen() {
         toggleSubtask,
         reorderTodos,
     } = useTodos();
+
+    if (firebaseError) {
+        return (
+            <LinearGradient
+                colors={[theme.bgApp, theme.bgApp]}
+                style={styles.flex}
+            >
+                <SafeAreaView style={[styles.flex, styles.centerContent]}>
+                    <View style={[styles.errorContainer, { backgroundColor: theme.bgGlass, borderColor: theme.bgGlassBorder }]}>
+                        <Ionicons name="alert-circle" size={48} color="#DC2626" />
+                        <Text style={[styles.errorTitle, { color: theme.textPrimary }]}>Firebase Not Configured</Text>
+                        <Text style={[styles.errorMessage, { color: theme.textSecondary }]}>
+                            {firebaseError}
+                        </Text>
+                    </View>
+                </SafeAreaView>
+            </LinearGradient>
+        );
+    }
 
     const completedCount = todos.filter(t => t.completed).length;
     const totalCount = todos.length;
@@ -230,5 +249,27 @@ const styles = StyleSheet.create({
     },
     addTodoArea: {
         paddingVertical: 12,
+    },
+    centerContent: {
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    errorContainer: {
+        alignItems: 'center',
+        padding: 24,
+        borderRadius: 16,
+        borderWidth: 1,
+        marginHorizontal: 16,
+    },
+    errorTitle: {
+        fontSize: 18,
+        fontWeight: '700',
+        marginTop: 12,
+        marginBottom: 8,
+    },
+    errorMessage: {
+        fontSize: 14,
+        textAlign: 'center',
+        lineHeight: 20,
     },
 });
