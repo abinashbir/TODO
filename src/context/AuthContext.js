@@ -16,13 +16,16 @@ export function AuthProvider({ children }) {
     const [currentUser, setCurrentUser] = useState(null);
     const [loading, setLoading] = useState(true);
 
-    // Configure Google Auth Session
-    // The webClientId comes from your Firebase project's Google provider settings
+    const webClientId =
+        process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ||
+        '219252900104-5ihspi7oftu89j28ff13c0qou37c6999.apps.googleusercontent.com';
+
     const [request, response, promptAsync] = Google.useAuthRequest({
-        // You can find this in Firebase Console → Authentication → Google → Web SDK configuration → Web client ID
-        webClientId: '219252900104-5ihspi7oftu89j28ff13c0qou37c6999.apps.googleusercontent.com',
-        // For Expo Go development, we use the Expo proxy
-        // This works without native configuration
+        webClientId,
+        androidClientId:
+            process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID || webClientId,
+        iosClientId:
+            process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || webClientId,
     });
 
     useEffect(() => {
