@@ -12,7 +12,8 @@ export default function TodoList({
     onAddSubtask,
     onToggleSubtask,
     onDeleteSubtask,
-    onIncrementPomo
+    onIncrementPomo,
+    onStartFocus
 }) {
     const { theme } = useTheme();
 
@@ -46,6 +47,7 @@ export default function TodoList({
                     onToggleSubtask={onToggleSubtask}
                     onDeleteSubtask={onDeleteSubtask}
                     onIncrementPomo={onIncrementPomo}
+                    onStartFocus={onStartFocus}
                 />
             ))}
         </ScrollView>

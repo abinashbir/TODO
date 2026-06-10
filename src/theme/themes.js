@@ -53,3 +53,9 @@ export const categories = [
     { id: 'learning', name: 'Learning', color: '#DD6B20', icon: 'book' },
     { id: 'ideas', name: 'Creative Ideas', color: '#ED64A6', icon: 'bulb' }
 ];
+
+export const priorities = {
+    high: { id: 'high', name: 'High', color: '#E53E3E', labelBg: 'rgba(229, 62, 62, 0.12)' },
+    medium: { id: 'medium', name: 'Medium', color: '#DD6B20', labelBg: 'rgba(221, 107, 32, 0.12)' },
+    low: { id: 'low', name: 'Low', color: '#3182CE', labelBg: 'rgba(49, 130, 206, 0.12)' }
+};

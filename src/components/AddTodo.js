@@ -9,12 +9,13 @@ import {
     ScrollView,
     KeyboardAvoidingView,
     Platform,
-    TouchableWithoutFeedback
+    TouchableWithoutFeedback,
+    Switch
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../context/ThemeContext';
-import { categories } from '../theme/themes';
+import { categories, priorities } from '../theme/themes';
 
 export default function AddTodo({ onAdd }) {
     const { theme } = useTheme();
@@ -23,6 +24,8 @@ export default function AddTodo({ onAdd }) {
     const [selectedCategory, setSelectedCategory] = useState('personal');
     const [selectedDatePreset, setSelectedDatePreset] = useState('today'); // today, tomorrow, nextWeek, none
     const [estimatedPomodoros, setEstimatedPomodoros] = useState(1);
+    const [selectedPriority, setSelectedPriority] = useState('medium'); // low, medium, high
+    const [setReminder, setSetReminder] = useState(false);
 
     const handleAdd = () => {
         if (!text.trim()) return;
@@ -41,13 +44,16 @@ export default function AddTodo({ onAdd }) {
             dueDate = nextWeek.toDateString();
         }
 
-        onAdd(text, selectedCategory, dueDate);
+        // Call parent onAdd with priority and reminder option
+        onAdd(text, selectedCategory, dueDate, selectedPriority, setReminder);
         
         // Reset states
         setText('');
         setSelectedCategory('personal');
         setSelectedDatePreset('today');
         setEstimatedPomodoros(1);
+        setSelectedPriority('medium');
+        setSetReminder(false);
         setModalVisible(false);
     };
 
@@ -159,6 +165,39 @@ export default function AddTodo({ onAdd }) {
                                     </ScrollView>
                                 </View>
 
+                                {/* Priority Selector */}
+                                <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>
+                                    Priority Level
+                                </Text>
+                                <View style={styles.priorityContainer}>
+                                    {Object.values(priorities).map((prio) => {
+                                        const isSelected = selectedPriority === prio.id;
+                                        return (
+                                            <TouchableOpacity
+                                                key={prio.id}
+                                                style={[
+                                                    styles.priorityChip,
+                                                    {
+                                                        backgroundColor: isSelected ? prio.color : theme.bgGlass,
+                                                        borderColor: isSelected ? prio.color : theme.bgGlassBorder,
+                                                    }
+                                                ]}
+                                                onPress={() => setSelectedPriority(prio.id)}
+                                                activeOpacity={0.7}
+                                            >
+                                                <Text
+                                                    style={[
+                                                        styles.priorityText,
+                                                        { color: isSelected ? '#FFFFFF' : theme.textSecondary }
+                                                    ]}
+                                                >
+                                                    {prio.name}
+                                                </Text>
+                                            </TouchableOpacity>
+                                        );
+                                    })}
+                                </View>
+
                                 {/* Date Presets */}
                                 <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>
                                     Due Date
@@ -197,30 +236,24 @@ export default function AddTodo({ onAdd }) {
                                     })}
                                 </View>
 
-                                {/* Pomodoro Estimation */}
-                                <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>
-                                    Estimated Pomodoros (Focus sessions)
-                                </Text>
-                                <View style={styles.pomoContainer}>
-                                    {[1, 2, 3, 4, 5].map((num) => {
-                                        const isActive = num <= estimatedPomodoros;
-                                        return (
-                                            <TouchableOpacity
-                                                key={num}
-                                                onPress={() => setEstimatedPomodoros(num)}
-                                                style={styles.pomoButton}
-                                                activeOpacity={0.7}
-                                            >
-                                                <Text style={[
-                                                    styles.pomoIcon, 
-                                                    { opacity: isActive ? 1 : 0.25 }
-                                                ]}>
-                                                    🍅
-                                                </Text>
-                                            </TouchableOpacity>
-                                        );
-                                    })}
-                                </View>
+                                {/* Notification Reminder Toggle */}
+                                {selectedDatePreset !== 'none' && (
+                                    <View style={styles.reminderRow}>
+                                        <View style={styles.reminderInfo}>
+                                            <Ionicons name="notifications-outline" size={18} color={theme.primary} />
+                                            <Text style={[styles.reminderText, { color: theme.textPrimary }]}>
+                                                Schedule Notification (9:00 AM)
+                                            </Text>
+                                        </View>
+                                        <Switch
+                                            trackColor={{ false: '#718096', true: theme.primary }}
+                                            thumbColor={setReminder ? '#FFFFFF' : '#F7FAFC'}
+                                            ios_backgroundColor="#3e3e3e"
+                                            onValueChange={setSetReminder}
+                                            value={setReminder}
+                                        />
+                                    </View>
+                                )}
 
                                 {/* Create Button */}
                                 <TouchableOpacity
@@ -300,7 +333,7 @@ const styles = StyleSheet.create({
         marginBottom: 16,
     },
     sectionTitle: {
-        fontSize: 13,
+        fontSize: 12,
         fontWeight: '600',
         textTransform: 'uppercase',
         letterSpacing: 0.5,
@@ -329,6 +362,23 @@ const styles = StyleSheet.create({
         fontSize: 13,
         fontWeight: '600',
     },
+    priorityContainer: {
+        flexDirection: 'row',
+        gap: 10,
+        marginBottom: 16,
+    },
+    priorityChip: {
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+        height: 38,
+        borderRadius: 12,
+        borderWidth: 1,
+    },
+    priorityText: {
+        fontSize: 13,
+        fontWeight: '600',
+    },
     presetsContainer: {
         flexDirection: 'row',
         flexWrap: 'wrap',
@@ -348,16 +398,21 @@ const styles = StyleSheet.create({
         fontSize: 13,
         fontWeight: '500',
     },
-    pomoContainer: {
+    reminderRow: {
         flexDirection: 'row',
-        gap: 12,
-        marginBottom: 24,
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 20,
+        paddingVertical: 4,
     },
-    pomoButton: {
-        padding: 4,
+    reminderInfo: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
     },
-    pomoIcon: {
-        fontSize: 24,
+    reminderText: {
+        fontSize: 13,
+        fontWeight: '600',
     },
     createButtonContainer: {
         borderRadius: 14,

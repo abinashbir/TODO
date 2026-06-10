@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
-import { categories } from '../theme/themes';
+import { categories, priorities } from '../theme/themes';
 
 if (Platform.OS === 'android') {
     if (UIManager.setLayoutAnimationEnabledExperimental) {
@@ -28,18 +28,21 @@ export default function TodoItem({
     onAddSubtask,
     onToggleSubtask,
     onDeleteSubtask,
-    onIncrementPomo
+    onIncrementPomo,
+    onStartFocus // New callback to trigger immersive focus modal
 }) {
     const { theme } = useTheme();
     const [expanded, setExpanded] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
     const [editText, setEditText] = useState(todo.text);
+    const [selectedPriority, setSelectedPriority] = useState(todo.priority || 'medium');
     const [newSubtaskText, setNewSubtaskText] = useState('');
     
     // Scale animation for checkbox check
     const checkScale = useRef(new Animated.Value(1)).current;
 
     const category = categories.find(c => c.id === todo.categoryId) || categories[0];
+    const prio = priorities[todo.priority || 'medium'];
 
     const toggleExpand = () => {
         LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -57,8 +60,8 @@ export default function TodoItem({
     };
 
     const handleSaveEdit = () => {
-        if (editText.trim() && editText !== todo.text) {
-            onEdit(todo.id, editText);
+        if (editText.trim() && (editText !== todo.text || selectedPriority !== todo.priority)) {
+            onEdit(todo.id, editText, selectedPriority);
         }
         setIsEditing(false);
     };
@@ -101,17 +104,45 @@ export default function TodoItem({
                     </TouchableOpacity>
                 </Animated.View>
 
-                {/* Task Title */}
+                {/* Task Title & Badges */}
                 <View style={styles.titleContainer}>
                     {isEditing ? (
-                        <TextInput
-                            style={[styles.editInput, { color: theme.textPrimary, borderBottomColor: theme.primary }]}
-                            value={editText}
-                            onChangeText={setEditText}
-                            onBlur={handleSaveEdit}
-                            onSubmitEditing={handleSaveEdit}
-                            autoFocus={true}
-                        />
+                        <View style={styles.editRow}>
+                            <TextInput
+                                style={[styles.editInput, { color: theme.textPrimary, borderBottomColor: theme.primary }]}
+                                value={editText}
+                                onChangeText={setEditText}
+                                onSubmitEditing={handleSaveEdit}
+                                autoFocus={true}
+                            />
+                            
+                            {/* Simple Priority Selector during editing */}
+                            <View style={styles.editPrioRow}>
+                                {Object.keys(priorities).map((pKey) => {
+                                    const active = selectedPriority === pKey;
+                                    return (
+                                        <TouchableOpacity
+                                            key={pKey}
+                                            style={[
+                                                styles.editPrioChip,
+                                                { 
+                                                    backgroundColor: active ? priorities[pKey].color : 'transparent',
+                                                    borderColor: priorities[pKey].color
+                                                }
+                                            ]}
+                                            onPress={() => setSelectedPriority(pKey)}
+                                        >
+                                            <Text style={[styles.editPrioText, { color: active ? '#FFFFFF' : priorities[pKey].color }]}>
+                                                {pKey[0].toUpperCase()}
+                                            </Text>
+                                        </TouchableOpacity>
+                                    );
+                                })}
+                            </View>
+                            <TouchableOpacity onPress={handleSaveEdit} style={styles.saveEditBtn}>
+                                <Ionicons name="checkmark-circle" size={20} color={theme.primary} />
+                            </TouchableOpacity>
+                        </View>
                     ) : (
                         <TouchableOpacity 
                             onPress={toggleExpand} 
@@ -127,6 +158,23 @@ export default function TodoItem({
                             ]}>
                                 {todo.text}
                             </Text>
+                            
+                            {/* Badges row below text */}
+                            <View style={styles.cardBadges}>
+                                <View style={[styles.priorityBadge, { backgroundColor: prio.labelBg }]}>
+                                    <Text style={[styles.priorityText, { color: prio.color }]}>
+                                        {prio.name}
+                                    </Text>
+                                </View>
+                                {todo.dueDate && (
+                                    <View style={styles.miniDate}>
+                                        <Ionicons name="calendar-outline" size={10} color={theme.textSecondary} />
+                                        <Text style={[styles.miniDateText, { color: theme.textSecondary }]}>
+                                            {todo.dueDate.split(' ').slice(1, 3).join(' ')} {/* Show e.g. "Jun 10" */}
+                                        </Text>
+                                    </View>
+                                )}
+                            </View>
                         </TouchableOpacity>
                     )}
                 </View>
@@ -175,13 +223,12 @@ export default function TodoItem({
                         <View style={styles.metaItem}>
                             <Text style={styles.metaTextEmoji}>🍅</Text>
                             <Text style={[styles.metaText, { color: theme.textSecondary }]}>
-                                {todo.pomodoros || 0} focused
+                                {todo.pomodoros || 0} complete
                             </Text>
                             <TouchableOpacity
                                 style={[styles.pomoIncrementBtn, { backgroundColor: theme.bgGlassBorder }]}
                                 onPress={() => onIncrementPomo(todo.id)}
                             >
-                                <Ionicons name="play-outline" size={10} color={theme.primary} />
                                 <Text style={[styles.pomoAddText, { color: theme.primary }]}>+1</Text>
                             </TouchableOpacity>
                         </View>
@@ -242,10 +289,18 @@ export default function TodoItem({
                     <View style={styles.actionsRow}>
                         <TouchableOpacity
                             style={[styles.actionButton, { backgroundColor: theme.bgGlassBorder }]}
+                            onPress={() => onStartFocus(todo)}
+                        >
+                            <Ionicons name="play-circle-outline" size={16} color={theme.primary} />
+                            <Text style={[styles.actionBtnText, { color: theme.primary }]}>Focus Timer</Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                            style={[styles.actionButton, { backgroundColor: theme.bgGlassBorder }]}
                             onPress={() => setIsEditing(true)}
                         >
                             <Ionicons name="pencil-outline" size={16} color={theme.textSecondary} />
-                            <Text style={[styles.actionBtnText, { color: theme.textPrimary }]}>Edit Title</Text>
+                            <Text style={[styles.actionBtnText, { color: theme.textPrimary }]}>Edit</Text>
                         </TouchableOpacity>
 
                         <TouchableOpacity
@@ -288,18 +343,68 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     textClickable: {
-        paddingVertical: 4,
+        paddingVertical: 2,
     },
     taskText: {
         fontSize: 15,
         fontWeight: '600',
         lineHeight: 20,
+        marginBottom: 4,
+    },
+    cardBadges: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+    },
+    priorityBadge: {
+        paddingVertical: 2,
+        paddingHorizontal: 6,
+        borderRadius: 6,
+    },
+    priorityText: {
+        fontSize: 9,
+        fontWeight: '800',
+        textTransform: 'uppercase',
+    },
+    miniDate: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 3,
+    },
+    miniDateText: {
+        fontSize: 11,
+        fontWeight: '600',
+    },
+    editRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
     },
     editInput: {
+        flex: 1,
         fontSize: 15,
         fontWeight: '600',
         paddingVertical: 2,
         borderBottomWidth: 1.5,
+    },
+    editPrioRow: {
+        flexDirection: 'row',
+        gap: 4,
+    },
+    editPrioChip: {
+        width: 22,
+        height: 22,
+        borderRadius: 6,
+        borderWidth: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    editPrioText: {
+        fontSize: 10,
+        fontWeight: '800',
+    },
+    saveEditBtn: {
+        padding: 2,
     },
     rightIcons: {
         flexDirection: 'row',
@@ -350,16 +455,13 @@ const styles = StyleSheet.create({
         fontSize: 13,
     },
     pomoIncrementBtn: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingVertical: 3,
+        paddingVertical: 2,
         paddingHorizontal: 8,
         borderRadius: 8,
-        gap: 4,
         marginLeft: 4,
     },
     pomoAddText: {
-        fontSize: 10,
+        fontSize: 11,
         fontWeight: '700',
     },
     sectionTitle: {
@@ -423,12 +525,12 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         paddingVertical: 8,
-        paddingHorizontal: 12,
+        paddingHorizontal: 10,
         borderRadius: 10,
         gap: 6,
     },
     actionBtnText: {
-        fontSize: 13,
+        fontSize: 12,
         fontWeight: '600',
     },
 });

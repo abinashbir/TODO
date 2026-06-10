@@ -3,20 +3,27 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Crypto from 'expo-crypto';
 
 const TODOS_STORAGE_KEY = 'todoapp_todos';
+const TRASH_STORAGE_KEY = 'todoapp_trash';
 const STREAK_STORAGE_KEY = 'todoapp_streak';
 
 export function useTodos() {
     const [todos, setTodos] = useState([]);
+    const [trash, setTrash] = useState([]);
     const [streak, setStreak] = useState({ count: 0, lastDate: null });
     const [loading, setLoading] = useState(true);
 
-    // Load todos and streak from AsyncStorage on mount
+    // Load todos, trash, and streak from AsyncStorage on mount
     useEffect(() => {
         const loadLocalData = async () => {
             try {
                 const storedTodos = await AsyncStorage.getItem(TODOS_STORAGE_KEY);
                 if (storedTodos) {
                     setTodos(JSON.parse(storedTodos));
+                }
+
+                const storedTrash = await AsyncStorage.getItem(TRASH_STORAGE_KEY);
+                if (storedTrash) {
+                    setTrash(JSON.parse(storedTrash));
                 }
 
                 const storedStreak = await AsyncStorage.getItem(STREAK_STORAGE_KEY);
@@ -42,6 +49,14 @@ export function useTodos() {
         }
     };
 
+    const saveTrash = async (newTrash) => {
+        try {
+            await AsyncStorage.setItem(TRASH_STORAGE_KEY, JSON.stringify(newTrash));
+        } catch (error) {
+            console.error('Error saving trash to AsyncStorage:', error);
+        }
+    };
+
     const saveStreak = async (newStreak) => {
         try {
             await AsyncStorage.setItem(STREAK_STORAGE_KEY, JSON.stringify(newStreak));
@@ -60,10 +75,8 @@ export function useTodos() {
 
         let newStreak;
         if (streak.lastDate === yesterdayStr) {
-            // Consecutive day completion
             newStreak = { count: streak.count + 1, lastDate: todayStr };
         } else {
-            // Streak broken or new streak
             newStreak = { count: 1, lastDate: todayStr };
         }
         
@@ -71,7 +84,7 @@ export function useTodos() {
         saveStreak(newStreak);
     };
 
-    const addTodo = async (text, categoryId = 'personal', dueDate = null) => {
+    const addTodo = async (text, categoryId = 'personal', dueDate = null, priority = 'medium') => {
         if (!text.trim()) return;
 
         const newTodo = {
@@ -79,8 +92,10 @@ export function useTodos() {
             text: text.trim(),
             completed: false,
             createdAt: new Date().toISOString(),
+            completedAt: null,
             categoryId,
             dueDate,
+            priority,
             subtasks: [],
             pomodoros: 0
         };
@@ -96,7 +111,11 @@ export function useTodos() {
 
         const willBeCompleted = !todo.completed;
         const newTodos = todos.map(t =>
-            t.id === id ? { ...t, completed: willBeCompleted } : t
+            t.id === id ? { 
+                ...t, 
+                completed: willBeCompleted,
+                completedAt: willBeCompleted ? new Date().toISOString() : null 
+            } : t
         );
         setTodos(newTodos);
         await saveTodos(newTodos);
@@ -106,16 +125,59 @@ export function useTodos() {
         }
     };
 
+    // Move to Recycle Bin (Trash)
     const deleteTodo = async (id) => {
+        const todoToDelete = todos.find(t => t.id === id);
+        if (!todoToDelete) return;
+
+        // Add to trash
+        const newTrash = [todoToDelete, ...trash];
+        setTrash(newTrash);
+        await saveTrash(newTrash);
+
+        // Remove from active list
         const newTodos = todos.filter(t => t.id !== id);
         setTodos(newTodos);
         await saveTodos(newTodos);
     };
 
-    const editTodo = async (id, newText) => {
+    // Restore from Recycle Bin
+    const restoreTodo = async (id) => {
+        const todoToRestore = trash.find(t => t.id === id);
+        if (!todoToRestore) return;
+
+        // Add back to active list
+        const newTodos = [todoToRestore, ...todos];
+        setTodos(newTodos);
+        await saveTodos(newTodos);
+
+        // Remove from trash
+        const newTrash = trash.filter(t => t.id !== id);
+        setTrash(newTrash);
+        await saveTrash(newTrash);
+    };
+
+    // Purge permanently from Recycle Bin
+    const purgeTodo = async (id) => {
+        const newTrash = trash.filter(t => t.id !== id);
+        setTrash(newTrash);
+        await saveTrash(newTrash);
+    };
+
+    // Clear entire Recycle Bin
+    const clearTrash = async () => {
+        setTrash([]);
+        await saveTrash([]);
+    };
+
+    const editTodo = async (id, newText, priority = null) => {
         if (!newText.trim()) return;
         const newTodos = todos.map(t =>
-            t.id === id ? { ...t, text: newText.trim() } : t
+            t.id === id ? { 
+                ...t, 
+                text: newText.trim(),
+                priority: priority || t.priority
+            } : t
         );
         setTodos(newTodos);
         await saveTodos(newTodos);
@@ -180,6 +242,13 @@ export function useTodos() {
     };
 
     const clearCompleted = async () => {
+        const completed = todos.filter(t => t.completed);
+        // Move all completed to trash
+        const newTrash = [...completed, ...trash];
+        setTrash(newTrash);
+        await saveTrash(newTrash);
+
+        // Filter out completed from active list
         const newTodos = todos.filter(t => !t.completed);
         setTodos(newTodos);
         await saveTodos(newTodos);
@@ -187,11 +256,15 @@ export function useTodos() {
 
     return {
         todos,
+        trash,
         streak,
         loading,
         addTodo,
         toggleTodo,
         deleteTodo,
+        restoreTodo,
+        purgeTodo,
+        clearTrash,
         editTodo,
         clearCompleted,
         addSubtask,
