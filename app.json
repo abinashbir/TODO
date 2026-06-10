@@ -1,36 +1,25 @@
 {
   "expo": {
-    "name": "My Tasks",
-    "slug": "todo-app",
+    "name": "TODO-Mobile",
+    "slug": "TODO-Mobile",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "dark",
-    "scheme": "todoapp",
+    "userInterfaceStyle": "light",
     "ios": {
-      "supportsTablet": true,
-      "bundleIdentifier": "com.abinash.todoapp"
+      "supportsTablet": true
     },
     "android": {
-      "package": "com.abinash.todoapp",
       "adaptiveIcon": {
-        "backgroundColor": "#0f172a",
+        "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
-      }
+      },
+      "package": "com.abinashbir.TODOMobile"
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    },
-    "plugins": [
-      "expo-web-browser",
-      "@react-native-community/datetimepicker"
-    ],
-    "extra": {
-      "eas": {
-        "projectId": "1f02b0b4-59f1-47e8-957e-b98eb579ec8c"
-      }
     }
   }
 }

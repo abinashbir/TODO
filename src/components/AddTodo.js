@@ -5,232 +5,372 @@ import {
     TextInput,
     TouchableOpacity,
     StyleSheet,
+    Modal,
+    ScrollView,
+    KeyboardAvoidingView,
     Platform,
-    Keyboard,
-    LayoutAnimation,
-    UIManager,
+    TouchableWithoutFeedback
 } from 'react-native';
-import DateTimePicker from '@react-native-community/datetimepicker';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../context/ThemeContext';
-import { CATEGORIES, CATEGORY_COLORS } from '../theme/themes';
-
-if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
-    UIManager.setLayoutAnimationEnabledExperimental(true);
-}
+import { categories } from '../theme/themes';
 
 export default function AddTodo({ onAdd }) {
     const { theme } = useTheme();
+    const [modalVisible, setModalVisible] = useState(false);
     const [text, setText] = useState('');
-    const [category, setCategory] = useState('personal');
-    const [dueDate, setDueDate] = useState(null);
-    const [isExpanded, setIsExpanded] = useState(false);
-    const [showDatePicker, setShowDatePicker] = useState(false);
+    const [selectedCategory, setSelectedCategory] = useState('personal');
+    const [selectedDatePreset, setSelectedDatePreset] = useState('today'); // today, tomorrow, nextWeek, none
+    const [estimatedPomodoros, setEstimatedPomodoros] = useState(1);
 
-    const handleSubmit = () => {
+    const handleAdd = () => {
         if (!text.trim()) return;
-        const dateStr = dueDate ? dueDate.toISOString().split('T')[0] : null;
-        onAdd(text, category, dateStr);
-        setText('');
-        setDueDate(null);
-        setIsExpanded(false);
-        Keyboard.dismiss();
-    };
 
-    const toggleExpanded = () => {
-        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-        setIsExpanded(!isExpanded);
-    };
-
-    const handleDateChange = (event, selectedDate) => {
-        setShowDatePicker(Platform.OS === 'ios'); // iOS keeps the picker open
-        if (selectedDate) {
-            setDueDate(selectedDate);
+        let dueDate = null;
+        const now = new Date();
+        if (selectedDatePreset === 'today') {
+            dueDate = now.toDateString();
+        } else if (selectedDatePreset === 'tomorrow') {
+            const tomorrow = new Date(now);
+            tomorrow.setDate(now.getDate() + 1);
+            dueDate = tomorrow.toDateString();
+        } else if (selectedDatePreset === 'nextWeek') {
+            const nextWeek = new Date(now);
+            nextWeek.setDate(now.getDate() + 7);
+            dueDate = nextWeek.toDateString();
         }
+
+        onAdd(text, selectedCategory, dueDate);
+        
+        // Reset states
+        setText('');
+        setSelectedCategory('personal');
+        setSelectedDatePreset('today');
+        setEstimatedPomodoros(1);
+        setModalVisible(false);
     };
 
-    const categoryColor = CATEGORY_COLORS[category] || theme.primary;
+    const datePresets = [
+        { id: 'today', label: 'Today', icon: 'calendar-number-outline' },
+        { id: 'tomorrow', label: 'Tomorrow', icon: 'calendar-outline' },
+        { id: 'nextWeek', label: 'Next Week', icon: 'chevron-forward-circle-outline' },
+        { id: 'none', label: 'No Date', icon: 'close-circle-outline' }
+    ];
 
     return (
-        <View style={styles.wrapper}>
-            {/* Expanded options panel */}
-            {isExpanded && (
-                <View style={[styles.optionsPanel, {
-                    backgroundColor: theme.bgGlass,
-                    borderColor: theme.bgGlassBorder,
-                }]}>
-                    {/* Category pills */}
-                    <View style={styles.categoryRow}>
-                        {CATEGORIES.map(cat => {
-                            const isSelected = category === cat.id;
-                            const color = CATEGORY_COLORS[cat.id];
-                            return (
-                                <TouchableOpacity
-                                    key={cat.id}
-                                    onPress={() => setCategory(cat.id)}
-                                    style={[styles.categoryPill, {
-                                        backgroundColor: isSelected ? color : color + '15',
-                                        borderColor: isSelected ? '#fff' : 'transparent',
-                                        borderWidth: isSelected ? 1.5 : 1,
-                                    }]}
-                                    activeOpacity={0.7}
-                                >
-                                    <Text style={[styles.categoryPillText, {
-                                        color: isSelected ? '#fff' : color,
-                                        fontWeight: isSelected ? '700' : '500',
-                                    }]}>
-                                        {cat.label}
-                                    </Text>
-                                </TouchableOpacity>
-                            );
-                        })}
-                    </View>
-
-                    {/* Date picker trigger */}
-                    <TouchableOpacity
-                        onPress={() => setShowDatePicker(true)}
-                        style={[styles.dateButton, {
-                            backgroundColor: theme.bgGlassBorder,
-                        }]}
-                        activeOpacity={0.7}
-                    >
-                        <Ionicons name="calendar-outline" size={16} color={theme.textSecondary} />
-                        <Text style={[styles.dateButtonText, { color: theme.textSecondary }]}>
-                            {dueDate ? dueDate.toLocaleDateString() : 'Set due date'}
-                        </Text>
-                        {dueDate && (
-                            <TouchableOpacity onPress={() => setDueDate(null)}>
-                                <Ionicons name="close-circle" size={16} color={theme.textSecondary} />
-                            </TouchableOpacity>
-                        )}
-                    </TouchableOpacity>
-                </View>
-            )}
-
-            {/* Main input row */}
-            <View style={styles.inputRow}>
-                <View style={[styles.inputContainer, {
-                    backgroundColor: theme.bgGlass,
-                    borderColor: theme.bgGlassBorder,
-                }]}>
-                    <TextInput
-                        value={text}
-                        onChangeText={setText}
-                        onFocus={toggleExpanded}
-                        placeholder="Add a new task..."
-                        placeholderTextColor={theme.textSecondary + '80'}
-                        onSubmitEditing={handleSubmit}
-                        returnKeyType="done"
-                        style={[styles.textInput, {
-                            color: theme.textPrimary,
-                        }]}
-                    />
-                    {/* Category indicator dot */}
-                    <View style={[styles.categoryDot, { backgroundColor: categoryColor }]} />
-                </View>
-
-                <TouchableOpacity
-                    onPress={handleSubmit}
-                    disabled={!text.trim()}
-                    style={[styles.addButton, {
-                        backgroundColor: theme.primary,
-                        opacity: text.trim() ? 1 : 0.5,
-                    }]}
-                    activeOpacity={0.8}
+        <View>
+            {/* Floating Action Button */}
+            <TouchableOpacity
+                style={styles.fabContainer}
+                activeOpacity={0.8}
+                onPress={() => setModalVisible(true)}
+            >
+                <LinearGradient
+                    colors={[theme.primary, theme.accent]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.fab}
                 >
-                    <Ionicons name="add" size={28} color="#fff" />
-                </TouchableOpacity>
-            </View>
+                    <Ionicons name="add" size={28} color="#FFFFFF" />
+                </LinearGradient>
+            </TouchableOpacity>
 
-            {/* Native Date Picker */}
-            {showDatePicker && (
-                <DateTimePicker
-                    value={dueDate || new Date()}
-                    mode="date"
-                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                    onChange={handleDateChange}
-                    minimumDate={new Date()}
-                />
-            )}
+            {/* Bottom Sheet Modal */}
+            <Modal
+                animationType="slide"
+                transparent={true}
+                visible={modalVisible}
+                onRequestClose={() => setModalVisible(false)}
+            >
+                <TouchableWithoutFeedback onPress={() => setModalVisible(false)}>
+                    <View style={styles.modalOverlay}>
+                        <TouchableWithoutFeedback>
+                            <KeyboardAvoidingView
+                                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                                style={[
+                                    styles.modalContent,
+                                    {
+                                        backgroundColor: theme.bgApp,
+                                        borderTopColor: theme.bgGlassBorder,
+                                    }
+                                ]}
+                            >
+                                <View style={styles.dragBar} />
+                                
+                                <Text style={[styles.modalTitle, { color: theme.textPrimary }]}>
+                                    Create New Task
+                                </Text>
+
+                                <TextInput
+                                    style={[
+                                        styles.input,
+                                        {
+                                            color: theme.textPrimary,
+                                            backgroundColor: theme.bgGlass,
+                                            borderColor: theme.bgGlassBorder,
+                                        }
+                                    ]}
+                                    placeholder="What needs to be done?"
+                                    placeholderTextColor={theme.textSecondary}
+                                    value={text}
+                                    onChangeText={setText}
+                                    autoFocus={true}
+                                />
+
+                                {/* Category Selector */}
+                                <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>
+                                    Category
+                                </Text>
+                                <View style={styles.categoriesContainer}>
+                                    <ScrollView horizontal={true} showsHorizontalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+                                        {categories.map((cat) => {
+                                            const isSelected = selectedCategory === cat.id;
+                                            return (
+                                                <TouchableOpacity
+                                                    key={cat.id}
+                                                    style={[
+                                                        styles.categoryChip,
+                                                        {
+                                                            backgroundColor: isSelected ? cat.color : theme.bgGlass,
+                                                            borderColor: isSelected ? cat.color : theme.bgGlassBorder,
+                                                        }
+                                                    ]}
+                                                    onPress={() => setSelectedCategory(cat.id)}
+                                                    activeOpacity={0.7}
+                                                >
+                                                    <Ionicons 
+                                                        name={cat.icon} 
+                                                        size={14} 
+                                                        color={isSelected ? '#FFFFFF' : theme.textSecondary} 
+                                                        style={styles.chipIcon}
+                                                    />
+                                                    <Text
+                                                        style={[
+                                                            styles.categoryText,
+                                                            { color: isSelected ? '#FFFFFF' : theme.textSecondary }
+                                                        ]}
+                                                    >
+                                                        {cat.name}
+                                                    </Text>
+                                                </TouchableOpacity>
+                                            );
+                                        })}
+                                    </ScrollView>
+                                </View>
+
+                                {/* Date Presets */}
+                                <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>
+                                    Due Date
+                                </Text>
+                                <View style={styles.presetsContainer}>
+                                    {datePresets.map((preset) => {
+                                        const isSelected = selectedDatePreset === preset.id;
+                                        return (
+                                            <TouchableOpacity
+                                                key={preset.id}
+                                                style={[
+                                                    styles.presetChip,
+                                                    {
+                                                        backgroundColor: isSelected ? 'rgba(128, 90, 213, 0.12)' : 'transparent',
+                                                        borderColor: isSelected ? theme.primary : 'transparent',
+                                                    }
+                                                ]}
+                                                onPress={() => setSelectedDatePreset(preset.id)}
+                                                activeOpacity={0.7}
+                                            >
+                                                <Ionicons 
+                                                    name={preset.icon} 
+                                                    size={16} 
+                                                    color={isSelected ? theme.primary : theme.textSecondary} 
+                                                />
+                                                <Text
+                                                    style={[
+                                                        styles.presetText,
+                                                        { color: isSelected ? theme.textPrimary : theme.textSecondary }
+                                                    ]}
+                                                >
+                                                    {preset.label}
+                                                </Text>
+                                            </TouchableOpacity>
+                                        );
+                                    })}
+                                </View>
+
+                                {/* Pomodoro Estimation */}
+                                <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>
+                                    Estimated Pomodoros (Focus sessions)
+                                </Text>
+                                <View style={styles.pomoContainer}>
+                                    {[1, 2, 3, 4, 5].map((num) => {
+                                        const isActive = num <= estimatedPomodoros;
+                                        return (
+                                            <TouchableOpacity
+                                                key={num}
+                                                onPress={() => setEstimatedPomodoros(num)}
+                                                style={styles.pomoButton}
+                                                activeOpacity={0.7}
+                                            >
+                                                <Text style={[
+                                                    styles.pomoIcon, 
+                                                    { opacity: isActive ? 1 : 0.25 }
+                                                ]}>
+                                                    🍅
+                                                </Text>
+                                            </TouchableOpacity>
+                                        );
+                                    })}
+                                </View>
+
+                                {/* Create Button */}
+                                <TouchableOpacity
+                                    style={styles.createButtonContainer}
+                                    activeOpacity={0.8}
+                                    onPress={handleAdd}
+                                >
+                                    <LinearGradient
+                                        colors={[theme.primary, theme.accent]}
+                                        start={{ x: 0, y: 0 }}
+                                        end={{ x: 1, y: 0 }}
+                                        style={styles.createButton}
+                                    >
+                                        <Text style={styles.createButtonText}>Create Task</Text>
+                                    </LinearGradient>
+                                </TouchableOpacity>
+                            </KeyboardAvoidingView>
+                        </TouchableWithoutFeedback>
+                    </View>
+                </TouchableWithoutFeedback>
+            </Modal>
         </View>
     );
 }
 
 const styles = StyleSheet.create({
-    wrapper: {
-        paddingHorizontal: 4,
+    fabContainer: {
+        position: 'absolute',
+        bottom: 24,
+        right: 24,
+        zIndex: 99,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 5,
+        elevation: 6,
     },
-    optionsPanel: {
-        borderRadius: 16,
+    fab: {
+        width: 56,
+        height: 56,
+        borderRadius: 28,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        justifyContent: 'flex-end',
+    },
+    modalContent: {
+        borderTopLeftRadius: 24,
+        borderTopRightRadius: 24,
+        borderTopWidth: 1,
+        paddingHorizontal: 24,
+        paddingBottom: Platform.OS === 'ios' ? 40 : 24,
+        paddingTop: 12,
+    },
+    dragBar: {
+        width: 40,
+        height: 5,
+        backgroundColor: 'rgba(255,255,255,0.15)',
+        borderRadius: 3,
+        alignSelf: 'center',
+        marginBottom: 16,
+    },
+    modalTitle: {
+        fontSize: 20,
+        fontWeight: '700',
+        marginBottom: 16,
+    },
+    input: {
+        height: 50,
         borderWidth: 1,
-        padding: 14,
-        marginBottom: 10,
-        gap: 12,
+        borderRadius: 14,
+        paddingHorizontal: 16,
+        fontSize: 16,
+        marginBottom: 16,
     },
-    categoryRow: {
-        flexDirection: 'row',
-        gap: 8,
-        flexWrap: 'wrap',
-    },
-    categoryPill: {
-        paddingVertical: 6,
-        paddingHorizontal: 14,
-        borderRadius: 20,
-    },
-    categoryPillText: {
+    sectionTitle: {
         fontSize: 13,
+        fontWeight: '600',
+        textTransform: 'uppercase',
+        letterSpacing: 0.5,
+        marginBottom: 8,
     },
-    dateButton: {
+    categoriesContainer: {
+        marginBottom: 16,
+        marginHorizontal: -24,
+    },
+    scrollContent: {
+        paddingHorizontal: 24,
+        gap: 8,
+    },
+    categoryChip: {
         flexDirection: 'row',
         alignItems: 'center',
+        paddingVertical: 8,
+        paddingHorizontal: 14,
+        borderRadius: 20,
+        borderWidth: 1,
+    },
+    chipIcon: {
+        marginRight: 6,
+    },
+    categoryText: {
+        fontSize: 13,
+        fontWeight: '600',
+    },
+    presetsContainer: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
         gap: 8,
+        marginBottom: 16,
+    },
+    presetChip: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
         paddingVertical: 8,
         paddingHorizontal: 12,
         borderRadius: 12,
-        alignSelf: 'flex-start',
-    },
-    dateButtonText: {
-        fontSize: 13,
-    },
-    inputRow: {
-        flexDirection: 'row',
-        gap: 10,
-        alignItems: 'center',
-    },
-    inputContainer: {
-        flex: 1,
-        flexDirection: 'row',
-        alignItems: 'center',
-        borderRadius: 16,
         borderWidth: 1,
-        paddingRight: 14,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.12,
-        shadowRadius: 12,
-        elevation: 4,
     },
-    textInput: {
-        flex: 1,
-        fontSize: 16,
-        paddingVertical: 16,
-        paddingHorizontal: 18,
+    presetText: {
+        fontSize: 13,
+        fontWeight: '500',
     },
-    categoryDot: {
-        width: 12,
-        height: 12,
-        borderRadius: 6,
+    pomoContainer: {
+        flexDirection: 'row',
+        gap: 12,
+        marginBottom: 24,
     },
-    addButton: {
-        width: 56,
-        height: 56,
-        borderRadius: 16,
+    pomoButton: {
+        padding: 4,
+    },
+    pomoIcon: {
+        fontSize: 24,
+    },
+    createButtonContainer: {
+        borderRadius: 14,
+        overflow: 'hidden',
+    },
+    createButton: {
+        height: 50,
         justifyContent: 'center',
         alignItems: 'center',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.2,
-        shadowRadius: 8,
-        elevation: 5,
+    },
+    createButtonText: {
+        color: '#FFFFFF',
+        fontSize: 16,
+        fontWeight: '700',
     },
 });

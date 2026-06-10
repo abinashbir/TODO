@@ -1,27 +1,27 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
     View,
     Text,
-    TouchableOpacity,
     StyleSheet,
     StatusBar,
-    ActivityIndicator,
     KeyboardAvoidingView,
     Platform,
+    ScrollView,
+    TouchableOpacity
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
-import { useAuth } from '../context/AuthContext';
 import { useTodos } from '../hooks/useTodos';
 import TodoList from '../components/TodoList';
 import AddTodo from '../components/AddTodo';
 import ThemeSwitcher from '../components/ThemeSwitcher';
+import ConfettiEffect from '../components/ConfettiEffect';
+import { categories } from '../theme/themes';
 
 export default function HomeScreen() {
     const { theme } = useTheme();
-    const { logout, firebaseError } = useAuth();
     const {
         todos,
         streak,
@@ -31,27 +31,27 @@ export default function HomeScreen() {
         editTodo,
         addSubtask,
         toggleSubtask,
-        reorderTodos,
+        deleteSubtask,
+        incrementPomodoro,
     } = useTodos();
 
-    if (firebaseError) {
-        return (
-            <LinearGradient
-                colors={[theme.bgApp, theme.bgApp]}
-                style={styles.flex}
-            >
-                <SafeAreaView style={[styles.flex, styles.centerContent]}>
-                    <View style={[styles.errorContainer, { backgroundColor: theme.bgGlass, borderColor: theme.bgGlassBorder }]}>
-                        <Ionicons name="alert-circle" size={48} color="#DC2626" />
-                        <Text style={[styles.errorTitle, { color: theme.textPrimary }]}>Firebase Not Configured</Text>
-                        <Text style={[styles.errorMessage, { color: theme.textSecondary }]}>
-                            {firebaseError}
-                        </Text>
-                    </View>
-                </SafeAreaView>
-            </LinearGradient>
-        );
-    }
+    const [selectedCategory, setSelectedCategory] = useState('all');
+    const [confettiTrigger, setConfettiTrigger] = useState(null);
+
+    const handleToggleTodo = (id) => {
+        const todo = todos.find(t => t.id === id);
+        if (todo && !todo.completed) {
+            // Task is transitioning to completed, fire confetti
+            setConfettiTrigger(Date.now().toString());
+        }
+        toggleTodo(id);
+    };
+
+    // Filter tasks
+    const filteredTodos = todos.filter((todo) => {
+        if (selectedCategory === 'all') return true;
+        return todo.categoryId === selectedCategory;
+    });
 
     const completedCount = todos.filter(t => t.completed).length;
     const totalCount = todos.length;
@@ -59,68 +59,72 @@ export default function HomeScreen() {
 
     return (
         <LinearGradient
-            colors={[theme.bgApp, theme.bgApp]}
+            colors={[theme.gradientStart, theme.gradientEnd]}
             style={styles.flex}
         >
-            <StatusBar barStyle="light-content" backgroundColor={theme.bgApp} />
+            <StatusBar barStyle="light-content" backgroundColor={theme.gradientStart} />
+            <ConfettiEffect trigger={confettiTrigger} />
 
-            {/* Background gradient orbs */}
-            <View style={[styles.orbTopLeft, { backgroundColor: theme.gradientStart }]} />
-            <View style={[styles.orbBottomRight, { backgroundColor: theme.gradientEnd }]} />
-
-            <SafeAreaView style={styles.flex}>
+            <SafeAreaView style={styles.flex} edges={['top', 'left', 'right']}>
                 <KeyboardAvoidingView
                     style={styles.flex}
                     behavior={Platform.OS === 'ios' ? 'padding' : undefined}
                 >
                     <View style={styles.container}>
-                        {/* Header */}
+                        {/* Header Row */}
                         <View style={styles.header}>
                             <View style={styles.headerLeft}>
+                                <Text style={[styles.welcomeText, { color: theme.textSecondary }]}>
+                                    Hello! Ready to focus?
+                                </Text>
                                 <Text style={[styles.title, { color: theme.textPrimary }]}>
                                     My Tasks
                                 </Text>
-                                <View style={styles.dateRow}>
-                                    <Ionicons name="calendar" size={16} color={theme.primary} />
-                                    <Text style={[styles.dateText, { color: theme.textSecondary }]}>
-                                        {new Date().toLocaleDateString('en-US', {
-                                            weekday: 'long',
-                                            month: 'long',
-                                            day: 'numeric',
-                                        })}
-                                    </Text>
-                                </View>
                             </View>
 
                             <View style={styles.headerRight}>
-                                <ThemeSwitcher />
-
-                                {/* Streak badge */}
-                                <View style={[styles.streakBadge, {
-                                    backgroundColor: 'rgba(255,165,0,0.12)',
-                                    borderColor: 'rgba(255,165,0,0.2)',
-                                }]}>
-                                    <Ionicons name="flame" size={16} color="orange" />
-                                    <Text style={styles.streakText}>{streak.count}</Text>
+                                {/* Streak Badge */}
+                                <View 
+                                    style={[
+                                        styles.streakBadge, 
+                                        { 
+                                            backgroundColor: 'rgba(237, 137, 54, 0.12)',
+                                            borderColor: 'rgba(237, 137, 54, 0.25)' 
+                                        }
+                                    ]}
+                                >
+                                    <Ionicons name="flame" size={16} color="#ED8936" />
+                                    <Text style={styles.streakText}>{streak.count || 0}</Text>
                                 </View>
 
-                                {/* Logout */}
-                                <TouchableOpacity
-                                    onPress={logout}
-                                    style={[styles.logoutBtn, { backgroundColor: theme.bgGlassBorder }]}
-                                    activeOpacity={0.7}
-                                >
-                                    <Ionicons name="log-out-outline" size={18} color={theme.textSecondary} />
-                                </TouchableOpacity>
+                                {/* Theme Cycler */}
+                                <ThemeSwitcher />
                             </View>
                         </View>
 
-                        {/* Progress bar */}
-                        <View style={styles.progressSection}>
-                            <Text style={[styles.progressLabel, { color: theme.textSecondary }]}>
-                                {progressPercent}% Done
+                        {/* Date row */}
+                        <View style={styles.dateRow}>
+                            <Ionicons name="calendar-outline" size={16} color={theme.primary} />
+                            <Text style={[styles.dateText, { color: theme.textSecondary }]}>
+                                {new Date().toLocaleDateString('en-US', {
+                                    weekday: 'long',
+                                    month: 'long',
+                                    day: 'numeric',
+                                })}
                             </Text>
-                            <View style={[styles.progressTrack, { backgroundColor: theme.bgGlassBorder }]}>
+                        </View>
+
+                        {/* Progress Section */}
+                        <View style={[styles.progressSection, { backgroundColor: theme.bgGlass, borderColor: theme.bgGlassBorder }]}>
+                            <View style={styles.progressTextRow}>
+                                <Text style={[styles.progressTitle, { color: theme.textPrimary }]}>
+                                    Daily Progress
+                                </Text>
+                                <Text style={[styles.progressPercentText, { color: theme.primary }]}>
+                                    {progressPercent}% Done
+                                </Text>
+                            </View>
+                            <View style={[styles.progressTrack, { backgroundColor: 'rgba(255,255,255,0.08)' }]}>
                                 <LinearGradient
                                     colors={[theme.primary, theme.accent]}
                                     start={{ x: 0, y: 0 }}
@@ -128,28 +132,87 @@ export default function HomeScreen() {
                                     style={[styles.progressFill, { width: `${progressPercent}%` }]}
                                 />
                             </View>
+                            <Text style={[styles.progressSummary, { color: theme.textSecondary }]}>
+                                {completedCount} of {totalCount} tasks completed
+                            </Text>
                         </View>
 
-                        {/* Todo List */}
+                        {/* Category Selector Tabs */}
+                        <View style={styles.tabsContainer}>
+                            <ScrollView horizontal={true} showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabsScroll}>
+                                {/* 'All' Tab */}
+                                <TouchableOpacity
+                                    style={[
+                                        styles.tab,
+                                        {
+                                            backgroundColor: selectedCategory === 'all' ? theme.primary : 'transparent',
+                                            borderColor: selectedCategory === 'all' ? theme.primary : theme.bgGlassBorder,
+                                        }
+                                    ]}
+                                    onPress={() => setSelectedCategory('all')}
+                                    activeOpacity={0.7}
+                                >
+                                    <Text style={[
+                                        styles.tabText,
+                                        { color: selectedCategory === 'all' ? '#FFFFFF' : theme.textSecondary }
+                                    ]}>
+                                        All Tasks
+                                    </Text>
+                                </TouchableOpacity>
+
+                                {/* Specific Category Tabs */}
+                                {categories.map((cat) => {
+                                    const isSelected = selectedCategory === cat.id;
+                                    return (
+                                        <TouchableOpacity
+                                            key={cat.id}
+                                            style={[
+                                                styles.tab,
+                                                {
+                                                    backgroundColor: isSelected ? cat.color : 'transparent',
+                                                    borderColor: isSelected ? cat.color : theme.bgGlassBorder,
+                                                }
+                                            ]}
+                                            onPress={() => setSelectedCategory(cat.id)}
+                                            activeOpacity={0.7}
+                                        >
+                                            <Ionicons 
+                                                name={cat.icon} 
+                                                size={13} 
+                                                color={isSelected ? '#FFFFFF' : theme.textSecondary} 
+                                                style={styles.tabIcon}
+                                            />
+                                            <Text style={[
+                                                styles.tabText,
+                                                { color: isSelected ? '#FFFFFF' : theme.textSecondary }
+                                            ]}>
+                                                {cat.name}
+                                            </Text>
+                                        </TouchableOpacity>
+                                    );
+                                })}
+                            </ScrollView>
+                        </View>
+
+                        {/* Todos List */}
                         <View style={styles.listArea}>
                             <TodoList
-                                todos={todos}
-                                onToggle={toggleTodo}
+                                todos={filteredTodos}
+                                onToggle={handleToggleTodo}
                                 onDelete={deleteTodo}
                                 onEdit={editTodo}
                                 onAddSubtask={addSubtask}
                                 onToggleSubtask={toggleSubtask}
-                                onReorder={reorderTodos}
+                                onDeleteSubtask={deleteSubtask}
+                                onIncrementPomo={incrementPomodoro}
                             />
-                        </View>
-
-                        {/* Add Todo (pinned to bottom) */}
-                        <View style={styles.addTodoArea}>
-                            <AddTodo onAdd={addTodo} />
                         </View>
                     </View>
                 </KeyboardAvoidingView>
             </SafeAreaView>
+
+            {/* Bottom Floating sheet creator trigger */}
+            <AddTodo onAdd={addTodo} />
         </LinearGradient>
     );
 }
@@ -158,118 +221,119 @@ const styles = StyleSheet.create({
     flex: {
         flex: 1,
     },
-    orbTopLeft: {
-        position: 'absolute',
-        top: -120,
-        left: -120,
-        width: 300,
-        height: 300,
-        borderRadius: 150,
-    },
-    orbBottomRight: {
-        position: 'absolute',
-        bottom: -120,
-        right: -120,
-        width: 300,
-        height: 300,
-        borderRadius: 150,
-    },
     container: {
         flex: 1,
         paddingHorizontal: 20,
-        paddingTop: 8,
+        paddingTop: 16,
     },
     header: {
         flexDirection: 'row',
         justifyContent: 'space-between',
-        alignItems: 'flex-start',
-        marginBottom: 16,
+        alignItems: 'center',
     },
     headerLeft: {
         flex: 1,
     },
+    welcomeText: {
+        fontSize: 13,
+        fontWeight: '600',
+        textTransform: 'uppercase',
+        letterSpacing: 0.5,
+        marginBottom: 2,
+    },
     title: {
-        fontSize: 30,
-        fontWeight: '700',
+        fontSize: 28,
+        fontWeight: '800',
         letterSpacing: -0.5,
+    },
+    headerRight: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10,
+    },
+    streakBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 5,
+        paddingVertical: 8,
+        paddingHorizontal: 12,
+        borderRadius: 12,
+        borderWidth: 1,
+    },
+    streakText: {
+        fontSize: 14,
+        fontWeight: '700',
+        color: '#ED8936',
     },
     dateRow: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: 6,
-        marginTop: 6,
+        marginTop: 10,
+        marginBottom: 16,
     },
     dateText: {
         fontSize: 14,
         fontWeight: '500',
     },
-    headerRight: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 6,
-    },
-    streakBadge: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 4,
-        paddingVertical: 6,
-        paddingHorizontal: 10,
-        borderRadius: 12,
-        borderWidth: 1,
-    },
-    streakText: {
-        fontWeight: '700',
-        color: 'orange',
-        fontSize: 14,
-    },
-    logoutBtn: {
-        padding: 8,
-        borderRadius: 10,
-    },
     progressSection: {
-        marginBottom: 16,
+        borderRadius: 16,
+        borderWidth: 1,
+        padding: 16,
+        marginBottom: 18,
     },
-    progressLabel: {
-        fontSize: 13,
-        textAlign: 'right',
-        marginBottom: 6,
-        fontWeight: '500',
+    progressTextRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 10,
+    },
+    progressTitle: {
+        fontSize: 14,
+        fontWeight: '700',
+    },
+    progressPercentText: {
+        fontSize: 14,
+        fontWeight: '700',
     },
     progressTrack: {
-        height: 6,
-        borderRadius: 10,
+        height: 8,
+        borderRadius: 4,
         overflow: 'hidden',
+        marginBottom: 8,
     },
     progressFill: {
         height: '100%',
-        borderRadius: 10,
+        borderRadius: 4,
+    },
+    progressSummary: {
+        fontSize: 12,
+        fontWeight: '500',
+    },
+    tabsContainer: {
+        marginBottom: 16,
+        marginHorizontal: -20,
+    },
+    tabsScroll: {
+        paddingHorizontal: 20,
+        gap: 8,
+    },
+    tab: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 8,
+        paddingHorizontal: 14,
+        borderRadius: 12,
+        borderWidth: 1,
+    },
+    tabIcon: {
+        marginRight: 6,
+    },
+    tabText: {
+        fontSize: 13,
+        fontWeight: '600',
     },
     listArea: {
         flex: 1,
-    },
-    addTodoArea: {
-        paddingVertical: 12,
-    },
-    centerContent: {
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    errorContainer: {
-        alignItems: 'center',
-        padding: 24,
-        borderRadius: 16,
-        borderWidth: 1,
-        marginHorizontal: 16,
-    },
-    errorTitle: {
-        fontSize: 18,
-        fontWeight: '700',
-        marginTop: 12,
-        marginBottom: 8,
-    },
-    errorMessage: {
-        fontSize: 14,
-        textAlign: 'center',
-        lineHeight: 20,
     },
 });

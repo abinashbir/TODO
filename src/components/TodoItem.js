@@ -2,346 +2,433 @@ import React, { useState, useRef } from 'react';
 import {
     View,
     Text,
-    TextInput,
-    TouchableOpacity,
     StyleSheet,
-    Animated,
+    TouchableOpacity,
+    TextInput,
     LayoutAnimation,
     Platform,
     UIManager,
+    Animated
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
-import { CATEGORY_COLORS } from '../theme/themes';
+import { categories } from '../theme/themes';
 
-// Enable LayoutAnimation on Android
-if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
-    UIManager.setLayoutAnimationEnabledExperimental(true);
+if (Platform.OS === 'android') {
+    if (UIManager.setLayoutAnimationEnabledExperimental) {
+        UIManager.setLayoutAnimationEnabledExperimental(true);
+    }
 }
 
-export default function TodoItem({ todo, onToggle, onDelete, onEdit, onAddSubtask, onToggleSubtask, drag, isActive }) {
+export default function TodoItem({
+    todo,
+    onToggle,
+    onDelete,
+    onEdit,
+    onAddSubtask,
+    onToggleSubtask,
+    onDeleteSubtask,
+    onIncrementPomo
+}) {
     const { theme } = useTheme();
+    const [expanded, setExpanded] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
     const [editText, setEditText] = useState(todo.text);
-    const [showSubtasks, setShowSubtasks] = useState(false);
-    const [newSubtask, setNewSubtask] = useState('');
-    const scaleAnim = useRef(new Animated.Value(1)).current;
+    const [newSubtaskText, setNewSubtaskText] = useState('');
+    
+    // Scale animation for checkbox check
+    const checkScale = useRef(new Animated.Value(1)).current;
 
-    const handleToggle = () => {
-        // Bounce animation
+    const category = categories.find(c => c.id === todo.categoryId) || categories[0];
+
+    const toggleExpand = () => {
+        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+        setExpanded(!expanded);
+    };
+
+    const handleToggleCheck = () => {
         Animated.sequence([
-            Animated.timing(scaleAnim, {
-                toValue: 0.95,
-                duration: 80,
-                useNativeDriver: true,
-            }),
-            Animated.spring(scaleAnim, {
-                toValue: 1,
-                friction: 3,
-                tension: 200,
-                useNativeDriver: true,
-            }),
+            Animated.timing(checkScale, { toValue: 0.75, duration: 80, useNativeDriver: true }),
+            Animated.timing(checkScale, { toValue: 1.2, duration: 80, useNativeDriver: true }),
+            Animated.timing(checkScale, { toValue: 1, duration: 80, useNativeDriver: true })
         ]).start();
 
         onToggle(todo.id);
     };
 
-    const handleEditSubmit = () => {
-        if (editText.trim()) {
+    const handleSaveEdit = () => {
+        if (editText.trim() && editText !== todo.text) {
             onEdit(todo.id, editText);
         }
         setIsEditing(false);
     };
 
-    const handleSubtaskSubmit = () => {
-        if (!newSubtask.trim()) return;
-        onAddSubtask(todo.id, newSubtask);
-        setNewSubtask('');
+    const handleAddSubtaskSubmit = () => {
+        if (newSubtaskText.trim()) {
+            onAddSubtask(todo.id, newSubtaskText.trim());
+            setNewSubtaskText('');
+        }
     };
 
-    const toggleSubtasksView = () => {
-        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-        setShowSubtasks(!showSubtasks);
-    };
-
-    const categoryColor = CATEGORY_COLORS[todo.categoryId] || theme.textSecondary;
+    const completedSubtasks = (todo.subtasks || []).filter(s => s.completed).length;
+    const totalSubtasks = (todo.subtasks || []).length;
 
     return (
-        <Animated.View style={[
-            styles.wrapper,
-            { transform: [{ scale: scaleAnim }] },
-            isActive && styles.dragging,
+        <View style={[
+            styles.card,
+            {
+                backgroundColor: theme.bgCard,
+                borderColor: expanded ? theme.primary : theme.bgGlassBorder,
+            }
         ]}>
-            <TouchableOpacity
-                onLongPress={drag}
-                delayLongPress={200}
-                activeOpacity={0.9}
-                style={[styles.container, {
-                    backgroundColor: todo.completed
-                        ? theme.bgGlass.replace('0.85', '0.4').replace('0.75', '0.4')
-                        : theme.bgGlass,
-                    borderColor: theme.bgGlassBorder,
-                    opacity: todo.completed ? 0.7 : 1,
-                }]}
-            >
-                {/* Drag handle */}
-                <View style={styles.dragHandle}>
-                    <Ionicons name="reorder-three" size={20} color={theme.textSecondary} />
-                </View>
-
+            {/* Main Task Row */}
+            <View style={styles.mainRow}>
                 {/* Checkbox */}
-                <TouchableOpacity onPress={handleToggle} style={[styles.checkbox, {
-                    borderColor: theme.primary,
-                    backgroundColor: todo.completed ? theme.primary : 'transparent',
-                }]}>
-                    {todo.completed && (
-                        <Ionicons name="checkmark" size={14} color="#fff" />
-                    )}
-                </TouchableOpacity>
+                <Animated.View style={{ transform: [{ scale: checkScale }] }}>
+                    <TouchableOpacity
+                        onPress={handleToggleCheck}
+                        style={[
+                            styles.checkbox,
+                            {
+                                borderColor: todo.completed ? theme.primary : theme.textSecondary,
+                                backgroundColor: todo.completed ? theme.primary : 'transparent',
+                            }
+                        ]}
+                    >
+                        {todo.completed && (
+                            <Ionicons name="checkmark" size={14} color="#FFFFFF" />
+                        )}
+                    </TouchableOpacity>
+                </Animated.View>
 
-                {/* Content */}
-                <View style={styles.content}>
+                {/* Task Title */}
+                <View style={styles.titleContainer}>
                     {isEditing ? (
                         <TextInput
+                            style={[styles.editInput, { color: theme.textPrimary, borderBottomColor: theme.primary }]}
                             value={editText}
                             onChangeText={setEditText}
-                            onSubmitEditing={handleEditSubmit}
-                            onBlur={handleEditSubmit}
-                            autoFocus
-                            style={[styles.editInput, {
-                                color: theme.textPrimary,
-                                borderColor: theme.primary,
-                            }]}
-                            returnKeyType="done"
+                            onBlur={handleSaveEdit}
+                            onSubmitEditing={handleSaveEdit}
+                            autoFocus={true}
                         />
                     ) : (
-                        <View>
-                            <Text style={[styles.todoText, {
-                                color: todo.completed ? theme.textSecondary : theme.textPrimary,
-                                textDecorationLine: todo.completed ? 'line-through' : 'none',
-                            }]}>
+                        <TouchableOpacity 
+                            onPress={toggleExpand} 
+                            activeOpacity={0.8}
+                            style={styles.textClickable}
+                        >
+                            <Text style={[
+                                styles.taskText,
+                                {
+                                    color: todo.completed ? theme.textSecondary : theme.textPrimary,
+                                    textDecorationLine: todo.completed ? 'line-through' : 'none',
+                                }
+                            ]}>
                                 {todo.text}
                             </Text>
-
-                            {/* Metadata row */}
-                            <View style={styles.metaRow}>
-                                <View style={[styles.categoryBadge, { backgroundColor: categoryColor + '30' }]}>
-                                    <Ionicons name="pricetag" size={10} color={categoryColor} />
-                                    <Text style={[styles.categoryText, { color: categoryColor }]}>
-                                        {todo.categoryId}
-                                    </Text>
-                                </View>
-
-                                {todo.dueDate && (
-                                    <View style={[styles.dateBadge, { backgroundColor: theme.bgGlassBorder }]}>
-                                        <Ionicons name="calendar-outline" size={10} color={theme.textSecondary} />
-                                        <Text style={[styles.dateText, { color: theme.textSecondary }]}>
-                                            {new Date(todo.dueDate).toLocaleDateString()}
-                                        </Text>
-                                    </View>
-                                )}
-
-                                {todo.pomodoros > 0 && (
-                                    <Text style={{ color: theme.textSecondary, fontSize: 11 }}>
-                                        🔥 {todo.pomodoros}
-                                    </Text>
-                                )}
-                            </View>
-                        </View>
+                        </TouchableOpacity>
                     )}
                 </View>
 
-                {/* Action buttons */}
-                <View style={styles.actions}>
-                    <TouchableOpacity onPress={toggleSubtasksView} style={styles.actionBtn}>
-                        <Ionicons
-                            name={showSubtasks ? 'chevron-down' : 'chevron-forward'}
-                            size={18}
-                            color={theme.textSecondary}
+                {/* Right Side Icons */}
+                <View style={styles.rightIcons}>
+                    {/* Category Dot */}
+                    <View style={[styles.categoryBadge, { backgroundColor: category.color }]}>
+                        <Ionicons name={category.icon} size={10} color="#FFFFFF" />
+                    </View>
+
+                    {/* Expand/Collapse Button */}
+                    <TouchableOpacity onPress={toggleExpand} style={styles.iconButton}>
+                        <Ionicons 
+                            name={expanded ? 'chevron-up' : 'chevron-down'} 
+                            size={18} 
+                            color={theme.textSecondary} 
                         />
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                        onPress={() => {
-                            setEditText(todo.text);
-                            setIsEditing(!isEditing);
-                        }}
-                        style={styles.actionBtn}
-                    >
-                        <Ionicons
-                            name={isEditing ? 'close' : 'create-outline'}
-                            size={18}
-                            color={theme.textSecondary}
-                        />
-                    </TouchableOpacity>
-                    <TouchableOpacity onPress={() => onDelete(todo.id)} style={styles.actionBtn}>
-                        <Ionicons name="trash-outline" size={18} color={theme.danger} />
                     </TouchableOpacity>
                 </View>
-            </TouchableOpacity>
+            </View>
 
-            {/* Subtasks panel */}
-            {showSubtasks && (
-                <View style={[styles.subtasksPanel, { borderColor: theme.bgGlassBorder }]}>
-                    {(todo.subtasks || []).map(subtask => (
-                        <TouchableOpacity
-                            key={subtask.id}
-                            onPress={() => onToggleSubtask(todo.id, subtask.id)}
-                            style={styles.subtaskRow}
-                        >
-                            <View style={[styles.subtaskCheckbox, {
-                                borderColor: theme.textSecondary,
-                                backgroundColor: subtask.completed ? theme.textSecondary : 'transparent',
-                            }]}>
-                                {subtask.completed && (
-                                    <Ionicons name="checkmark" size={10} color={theme.bgApp} />
-                                )}
-                            </View>
-                            <Text style={[styles.subtaskText, {
-                                color: subtask.completed ? theme.textSecondary : theme.textPrimary,
-                                textDecorationLine: subtask.completed ? 'line-through' : 'none',
-                            }]}>
-                                {subtask.text}
+            {/* Subtasks Progress Info when collapsed */}
+            {!expanded && totalSubtasks > 0 && (
+                <View style={styles.subtaskMiniProgress}>
+                    <Ionicons name="git-branch-outline" size={12} color={theme.textSecondary} />
+                    <Text style={[styles.miniProgressText, { color: theme.textSecondary }]}>
+                        {completedSubtasks}/{totalSubtasks} subtasks
+                    </Text>
+                </View>
+            )}
+
+            {/* Expandable Details Area */}
+            {expanded && (
+                <View style={[styles.detailsContainer, { borderTopColor: theme.divider }]}>
+                    {/* Due Date & Pomo row */}
+                    <View style={styles.metaRow}>
+                        <View style={styles.metaItem}>
+                            <Ionicons name="calendar-outline" size={14} color={theme.textSecondary} />
+                            <Text style={[styles.metaText, { color: theme.textSecondary }]}>
+                                {todo.dueDate ? todo.dueDate : 'No due date'}
                             </Text>
-                        </TouchableOpacity>
+                        </View>
+
+                        {/* Pomodoro Focus session tracker */}
+                        <View style={styles.metaItem}>
+                            <Text style={styles.metaTextEmoji}>🍅</Text>
+                            <Text style={[styles.metaText, { color: theme.textSecondary }]}>
+                                {todo.pomodoros || 0} focused
+                            </Text>
+                            <TouchableOpacity
+                                style={[styles.pomoIncrementBtn, { backgroundColor: theme.bgGlassBorder }]}
+                                onPress={() => onIncrementPomo(todo.id)}
+                            >
+                                <Ionicons name="play-outline" size={10} color={theme.primary} />
+                                <Text style={[styles.pomoAddText, { color: theme.primary }]}>+1</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+
+                    {/* Subtasks list */}
+                    <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>
+                        Subtasks
+                    </Text>
+
+                    {(todo.subtasks || []).map((sub) => (
+                        <View key={sub.id} style={styles.subtaskRow}>
+                            <TouchableOpacity
+                                style={[
+                                    styles.subtaskCheckbox,
+                                    { borderColor: sub.completed ? theme.primary : theme.textSecondary }
+                                ]}
+                                onPress={() => onToggleSubtask(todo.id, sub.id)}
+                            >
+                                {sub.completed && (
+                                    <View style={[styles.subtaskChecked, { backgroundColor: theme.primary }]} />
+                                )}
+                            </TouchableOpacity>
+                            <Text style={[
+                                styles.subtaskText,
+                                {
+                                    color: sub.completed ? theme.textSecondary : theme.textPrimary,
+                                    textDecorationLine: sub.completed ? 'line-through' : 'none'
+                                }
+                            ]}>
+                                {sub.text}
+                            </Text>
+                            <TouchableOpacity 
+                                onPress={() => onDeleteSubtask(todo.id, sub.id)}
+                                style={styles.subtaskDelete}
+                            >
+                                <Ionicons name="trash-outline" size={14} color="#E53E3E" />
+                            </TouchableOpacity>
+                        </View>
                     ))}
 
-                    <View style={styles.addSubtaskRow}>
+                    {/* Add Subtask Input */}
+                    <View style={[styles.addSubtaskContainer, { backgroundColor: theme.bgGlass, borderColor: theme.bgGlassBorder }]}>
                         <TextInput
-                            placeholder="Add subtask..."
-                            placeholderTextColor={theme.textSecondary + '80'}
-                            value={newSubtask}
-                            onChangeText={setNewSubtask}
-                            onSubmitEditing={handleSubtaskSubmit}
-                            returnKeyType="done"
-                            style={[styles.subtaskInput, {
-                                color: theme.textPrimary,
-                                backgroundColor: theme.bgGlass,
-                                borderColor: theme.bgGlassBorder,
-                            }]}
+                            style={[styles.subtaskInput, { color: theme.textPrimary }]}
+                            placeholder="Add a subtask..."
+                            placeholderTextColor={theme.textSecondary}
+                            value={newSubtaskText}
+                            onChangeText={setNewSubtaskText}
+                            onSubmitEditing={handleAddSubtaskSubmit}
                         />
+                        <TouchableOpacity onPress={handleAddSubtaskSubmit}>
+                            <Ionicons name="arrow-forward-circle" size={20} color={theme.primary} />
+                        </TouchableOpacity>
+                    </View>
+
+                    {/* Action buttons */}
+                    <View style={styles.actionsRow}>
+                        <TouchableOpacity
+                            style={[styles.actionButton, { backgroundColor: theme.bgGlassBorder }]}
+                            onPress={() => setIsEditing(true)}
+                        >
+                            <Ionicons name="pencil-outline" size={16} color={theme.textSecondary} />
+                            <Text style={[styles.actionBtnText, { color: theme.textPrimary }]}>Edit Title</Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                            style={[styles.actionButton, { backgroundColor: 'rgba(229, 62, 62, 0.1)' }]}
+                            onPress={() => onDelete(todo.id)}
+                        >
+                            <Ionicons name="trash-outline" size={16} color="#E53E3E" />
+                            <Text style={[styles.actionBtnText, { color: '#E53E3E' }]}>Delete</Text>
+                        </TouchableOpacity>
                     </View>
                 </View>
             )}
-        </Animated.View>
+        </View>
     );
 }
 
 const styles = StyleSheet.create({
-    wrapper: {
-        marginBottom: 10,
-    },
-    dragging: {
-        opacity: 0.8,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.3,
-        shadowRadius: 16,
-        elevation: 10,
-    },
-    container: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        padding: 14,
+    card: {
         borderRadius: 16,
         borderWidth: 1,
-        gap: 12,
+        marginBottom: 12,
+        padding: 14,
+        overflow: 'hidden',
     },
-    dragHandle: {
-        padding: 4,
+    mainRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
     },
     checkbox: {
-        width: 24,
-        height: 24,
-        borderRadius: 12,
+        width: 22,
+        height: 22,
+        borderRadius: 6,
         borderWidth: 2,
         justifyContent: 'center',
         alignItems: 'center',
+        marginRight: 12,
     },
-    content: {
+    titleContainer: {
         flex: 1,
     },
-    todoText: {
-        fontSize: 16,
+    textClickable: {
+        paddingVertical: 4,
+    },
+    taskText: {
+        fontSize: 15,
+        fontWeight: '600',
+        lineHeight: 20,
+    },
+    editInput: {
+        fontSize: 15,
+        fontWeight: '600',
+        paddingVertical: 2,
+        borderBottomWidth: 1.5,
+    },
+    rightIcons: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+    },
+    categoryBadge: {
+        width: 20,
+        height: 20,
+        borderRadius: 10,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    iconButton: {
+        padding: 4,
+    },
+    subtaskMiniProgress: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        marginTop: 8,
+        marginLeft: 34,
+    },
+    miniProgressText: {
+        fontSize: 12,
         fontWeight: '500',
-        lineHeight: 22,
+    },
+    detailsContainer: {
+        borderTopWidth: 1,
+        marginTop: 12,
+        paddingTop: 12,
     },
     metaRow: {
         flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginBottom: 14,
+    },
+    metaItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
         gap: 6,
-        marginTop: 6,
-        alignItems: 'center',
-        flexWrap: 'wrap',
     },
-    categoryBadge: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 4,
-        paddingVertical: 2,
-        paddingHorizontal: 8,
-        borderRadius: 10,
-    },
-    categoryText: {
-        fontSize: 11,
+    metaText: {
+        fontSize: 13,
         fontWeight: '500',
-        textTransform: 'capitalize',
     },
-    dateBadge: {
+    metaTextEmoji: {
+        fontSize: 13,
+    },
+    pomoIncrementBtn: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 4,
-        paddingVertical: 2,
+        paddingVertical: 3,
         paddingHorizontal: 8,
-        borderRadius: 10,
-    },
-    dateText: {
-        fontSize: 11,
-    },
-    actions: {
-        flexDirection: 'row',
-        gap: 4,
-    },
-    actionBtn: {
-        padding: 6,
-    },
-    editInput: {
-        fontSize: 16,
-        paddingVertical: 4,
-        paddingHorizontal: 8,
-        borderWidth: 1,
         borderRadius: 8,
+        gap: 4,
+        marginLeft: 4,
     },
-    subtasksPanel: {
-        marginLeft: 52,
-        paddingTop: 8,
-        paddingBottom: 4,
-        borderLeftWidth: 2,
-        paddingLeft: 16,
+    pomoAddText: {
+        fontSize: 10,
+        fontWeight: '700',
+    },
+    sectionTitle: {
+        fontSize: 11,
+        fontWeight: '700',
+        textTransform: 'uppercase',
+        letterSpacing: 0.5,
+        marginBottom: 8,
     },
     subtaskRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 8,
         marginBottom: 8,
+        paddingLeft: 4,
     },
     subtaskCheckbox: {
-        width: 16,
-        height: 16,
+        width: 14,
+        height: 14,
         borderRadius: 4,
-        borderWidth: 1,
+        borderWidth: 1.5,
         justifyContent: 'center',
         alignItems: 'center',
+        marginRight: 10,
+    },
+    subtaskChecked: {
+        width: 8,
+        height: 8,
+        borderRadius: 2,
     },
     subtaskText: {
-        fontSize: 14,
+        fontSize: 13,
+        fontWeight: '500',
+        flex: 1,
     },
-    addSubtaskRow: {
+    subtaskDelete: {
+        padding: 4,
+    },
+    addSubtaskContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        borderRadius: 10,
+        borderWidth: 1,
+        paddingHorizontal: 10,
+        height: 38,
         marginTop: 4,
+        marginBottom: 14,
     },
     subtaskInput: {
-        fontSize: 14,
-        paddingVertical: 6,
-        paddingHorizontal: 10,
-        borderRadius: 8,
-        borderWidth: 1,
+        flex: 1,
+        fontSize: 13,
+        height: '100%',
+        padding: 0,
+    },
+    actionsRow: {
+        flexDirection: 'row',
+        justifyContent: 'flex-end',
+        gap: 8,
+        marginTop: 6,
+    },
+    actionButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 8,
+        paddingHorizontal: 12,
+        borderRadius: 10,
+        gap: 6,
+    },
+    actionBtnText: {
+        fontSize: 13,
+        fontWeight: '600',
     },
 });

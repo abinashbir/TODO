@@ -1,159 +1,194 @@
 import { useState, useEffect } from 'react';
-import { db } from '../lib/firebase';
-import { collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy } from 'firebase/firestore';
-import { useAuth } from '../context/AuthContext';
-import 'react-native-get-random-values'; // polyfill for crypto.randomUUID
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Crypto from 'expo-crypto';
+
+const TODOS_STORAGE_KEY = 'todoapp_todos';
+const STREAK_STORAGE_KEY = 'todoapp_streak';
 
 export function useTodos() {
-    const { currentUser } = useAuth();
     const [todos, setTodos] = useState([]);
     const [streak, setStreak] = useState({ count: 0, lastDate: null });
+    const [loading, setLoading] = useState(true);
 
-    // Real-time Sync from Firestore
+    // Load todos and streak from AsyncStorage on mount
     useEffect(() => {
-        if (!currentUser || !db) {
-            setTodos([]);
-            return;
-        }
+        const loadLocalData = async () => {
+            try {
+                const storedTodos = await AsyncStorage.getItem(TODOS_STORAGE_KEY);
+                if (storedTodos) {
+                    setTodos(JSON.parse(storedTodos));
+                }
 
+                const storedStreak = await AsyncStorage.getItem(STREAK_STORAGE_KEY);
+                if (storedStreak) {
+                    setStreak(JSON.parse(storedStreak));
+                }
+            } catch (error) {
+                console.error('Error loading data from AsyncStorage:', error);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        loadLocalData();
+    }, []);
+
+    // Save helper functions
+    const saveTodos = async (newTodos) => {
         try {
-            const q = query(
-                collection(db, 'users', currentUser.uid, 'todos'),
-                orderBy('createdAt', 'desc')
-            );
-
-            const unsubscribe = onSnapshot(q, (snapshot) => {
-                const fetchedTodos = snapshot.docs.map(doc => ({
-                    id: doc.id,
-                    ...doc.data()
-                }));
-                setTodos(fetchedTodos);
-            }, (error) => {
-                console.error('Error fetching todos:', error);
-            });
-
-            return unsubscribe;
+            await AsyncStorage.setItem(TODOS_STORAGE_KEY, JSON.stringify(newTodos));
         } catch (error) {
-            console.error('Error setting up todos listener:', error);
-            return () => {};
+            console.error('Error saving todos to AsyncStorage:', error);
         }
-    }, [currentUser]);
+    };
 
-    const updateStreak = () => {
-        const today = new Date().toDateString();
-        if (streak.lastDate === today) return;
+    const saveStreak = async (newStreak) => {
+        try {
+            await AsyncStorage.setItem(STREAK_STORAGE_KEY, JSON.stringify(newStreak));
+        } catch (error) {
+            console.error('Error saving streak to AsyncStorage:', error);
+        }
+    };
+
+    const updateStreakOnCompletion = () => {
+        const todayStr = new Date().toDateString();
+        if (streak.lastDate === todayStr) return; // Already completed a task today
 
         const yesterday = new Date();
         yesterday.setDate(yesterday.getDate() - 1);
+        const yesterdayStr = yesterday.toDateString();
 
-        if (streak.lastDate === yesterday.toDateString()) {
-            setStreak({ count: streak.count + 1, lastDate: today });
+        let newStreak;
+        if (streak.lastDate === yesterdayStr) {
+            // Consecutive day completion
+            newStreak = { count: streak.count + 1, lastDate: todayStr };
         } else {
-            setStreak({ count: 1, lastDate: today });
+            // Streak broken or new streak
+            newStreak = { count: 1, lastDate: todayStr };
         }
+        
+        setStreak(newStreak);
+        saveStreak(newStreak);
     };
 
     const addTodo = async (text, categoryId = 'personal', dueDate = null) => {
-        if (!text.trim() || !currentUser || !db) {
-            console.error('Cannot add todo: No text, no user logged in, or Firebase not configured.');
-            return;
-        }
-        try {
-            await addDoc(collection(db, 'users', currentUser.uid, 'todos'), {
-                text: text.trim(),
-                completed: false,
-                createdAt: new Date().toISOString(),
-                categoryId,
-                dueDate,
-                subtasks: [],
-                pomodoros: 0
-            });
-        } catch (e) {
-            console.error('Error adding todo:', e);
-        }
+        if (!text.trim()) return;
+
+        const newTodo = {
+            id: Crypto.randomUUID(),
+            text: text.trim(),
+            completed: false,
+            createdAt: new Date().toISOString(),
+            categoryId,
+            dueDate,
+            subtasks: [],
+            pomodoros: 0
+        };
+
+        const newTodos = [newTodo, ...todos];
+        setTodos(newTodos);
+        await saveTodos(newTodos);
     };
 
     const toggleTodo = async (id) => {
-        if (!currentUser || !db) return;
         const todo = todos.find(t => t.id === id);
         if (!todo) return;
 
-        try {
-            await updateDoc(doc(db, 'users', currentUser.uid, 'todos', id), {
-                completed: !todo.completed
-            });
-            if (!todo.completed) updateStreak();
-        } catch (e) {
-            console.error('Error toggling todo:', e);
+        const willBeCompleted = !todo.completed;
+        const newTodos = todos.map(t =>
+            t.id === id ? { ...t, completed: willBeCompleted } : t
+        );
+        setTodos(newTodos);
+        await saveTodos(newTodos);
+
+        if (willBeCompleted) {
+            updateStreakOnCompletion();
         }
     };
 
     const deleteTodo = async (id) => {
-        if (!currentUser || !db) return;
-        try {
-            await deleteDoc(doc(db, 'users', currentUser.uid, 'todos', id));
-        } catch (e) {
-            console.error('Error deleting todo:', e);
-        }
+        const newTodos = todos.filter(t => t.id !== id);
+        setTodos(newTodos);
+        await saveTodos(newTodos);
     };
 
     const editTodo = async (id, newText) => {
-        if (!currentUser || !db) return;
-        try {
-            await updateDoc(doc(db, 'users', currentUser.uid, 'todos', id), {
-                text: newText.trim()
-            });
-        } catch (e) {
-            console.error('Error editing todo:', e);
-        }
+        if (!newText.trim()) return;
+        const newTodos = todos.map(t =>
+            t.id === id ? { ...t, text: newText.trim() } : t
+        );
+        setTodos(newTodos);
+        await saveTodos(newTodos);
     };
 
     const addSubtask = async (todoId, text) => {
-        if (!currentUser || !db) return;
+        if (!text.trim()) return;
         const todo = todos.find(t => t.id === todoId);
         if (!todo) return;
+
         const newSubtasks = [
             ...(todo.subtasks || []),
-            { id: crypto.randomUUID(), text, completed: false }
+            { id: Crypto.randomUUID(), text: text.trim(), completed: false }
         ];
-        try {
-            await updateDoc(doc(db, 'users', currentUser.uid, 'todos', todoId), {
-                subtasks: newSubtasks
-            });
-        } catch (e) {
-            console.error('Error adding subtask:', e);
-        }
+
+        const newTodos = todos.map(t =>
+            t.id === todoId ? { ...t, subtasks: newSubtasks } : t
+        );
+        setTodos(newTodos);
+        await saveTodos(newTodos);
     };
 
     const toggleSubtask = async (todoId, subtaskId) => {
-        if (!currentUser || !db) return;
         const todo = todos.find(t => t.id === todoId);
         if (!todo) return;
+
         const newSubtasks = (todo.subtasks || []).map(s =>
             s.id === subtaskId ? { ...s, completed: !s.completed } : s
         );
-        try {
-            await updateDoc(doc(db, 'users', currentUser.uid, 'todos', todoId), {
-                subtasks: newSubtasks
-            });
-        } catch (e) {
-            console.error('Error toggling subtask:', e);
-        }
+
+        const newTodos = todos.map(t =>
+            t.id === todoId ? { ...t, subtasks: newSubtasks } : t
+        );
+        setTodos(newTodos);
+        await saveTodos(newTodos);
     };
 
-    const reorderTodos = (data) => {
-        // Optimistic UI update from DraggableFlatList
+    const deleteSubtask = async (todoId, subtaskId) => {
+        const todo = todos.find(t => t.id === todoId);
+        if (!todo) return;
+
+        const newSubtasks = (todo.subtasks || []).filter(s => s.id !== subtaskId);
+
+        const newTodos = todos.map(t =>
+            t.id === todoId ? { ...t, subtasks: newSubtasks } : t
+        );
+        setTodos(newTodos);
+        await saveTodos(newTodos);
+    };
+
+    const incrementPomodoro = async (todoId) => {
+        const newTodos = todos.map(t =>
+            t.id === todoId ? { ...t, pomodoros: (t.pomodoros || 0) + 1 } : t
+        );
+        setTodos(newTodos);
+        await saveTodos(newTodos);
+    };
+
+    const reorderTodos = async (data) => {
         setTodos(data);
+        await saveTodos(data);
     };
 
-    const clearCompleted = () => {
-        const completed = todos.filter(t => t.completed);
-        completed.forEach(t => deleteTodo(t.id));
+    const clearCompleted = async () => {
+        const newTodos = todos.filter(t => !t.completed);
+        setTodos(newTodos);
+        await saveTodos(newTodos);
     };
 
     return {
         todos,
         streak,
+        loading,
         addTodo,
         toggleTodo,
         deleteTodo,
@@ -161,6 +196,8 @@ export function useTodos() {
         clearCompleted,
         addSubtask,
         toggleSubtask,
+        deleteSubtask,
+        incrementPomodoro,
         reorderTodos
     };
 }
