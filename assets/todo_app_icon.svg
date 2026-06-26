@@ -4,8 +4,8 @@
 
   
 
-  <!-- Rounded square background -->
-  <rect x="90" y="90" width="500" height="500" rx="120" style="fill:rgb(26, 26, 46);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <!-- Full-bleed square background; OS applies icon mask -->
+  <rect x="0" y="0" width="680" height="680" style="fill:rgb(26, 26, 46);stroke:none"/>
 
   <!-- Glow blobs -->
   <circle cx="260" cy="300" r="180" style="fill:rgb(108, 99, 255);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:0.08;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
